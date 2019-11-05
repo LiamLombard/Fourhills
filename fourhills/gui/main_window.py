@@ -8,6 +8,7 @@ from fourhills import Setting
 from fourhills.gui.entity_list_pane import EntityListPane
 from fourhills.gui.entity_pane import EntityPane
 from fourhills.gui.location_tree_pane import LocationTreePane
+from fourhills.gui.mdi_subwindow import MdiSubWindow
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -74,10 +75,11 @@ class MainWindow(QtWidgets.QMainWindow):
         entity_widget = EntityPane(entity_type, entity_file, self.setting, self)
 
         # Create a new Mdi window with the entity information
-        sub_window = QtWidgets.QMdiSubWindow(self.centralwidget)
+        sub_window = MdiSubWindow(self.centralwidget)
         sub_window.setWidget(entity_widget)
         sub_window.setAttribute(Qt.WA_DeleteOnClose)
         sub_window.setWindowTitle(entity_widget.title)
+        sub_window.setSystemMenu(None)
 
         self.centralwidget.addSubWindow(sub_window)
         sub_window.show()
