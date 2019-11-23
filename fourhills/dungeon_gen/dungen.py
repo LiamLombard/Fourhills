@@ -1,5 +1,6 @@
 from __future__ import print_function
 from room import Room, Spur
+from corridor import Corridor
 import random
 import png
  
@@ -9,8 +10,10 @@ CHARACTER_TILES = {'stone': ' ',
 
 PNG_TILES = {'stone': [0,0,0],
             'floor': [255,255,255],
-            'wall': [100, 100, 100]}
- 
+            'wall': [100, 100, 100],
+            'door': [100, 0, 0]
+            }
+
  
 class Generator():
     def __init__(self, width=64, height=64, max_rooms=15, min_room_xy=5,
@@ -30,55 +33,27 @@ class Generator():
         self.corridor_list = []
         self.tiles_level = []
  
-    def corridor_between_points(self, x1, y1, x2, y2, join_type='either'):
-        if x1 == x2 and y1 == y2 or x1 == x2 or y1 == y2:
-            return [(x1, y1), (x2, y2)]
-        else:
-            # 2 Corridors
-            # NOTE: Never randomly choose a join that will go out of bounds
-            # when the walls are added.
-            join = None
-            if join_type is 'either' and set([0, 1]).intersection(
-                 set([x1, x2, y1, y2])):
- 
-                join = 'bottom'
-            elif join_type is 'either' and set([self.width - 1,
-                 self.width - 2]).intersection(set([x1, x2])) or set(
-                 [self.height - 1, self.height - 2]).intersection(
-                 set([y1, y2])):
- 
-                join = 'top'
-            elif join_type is 'either':
-                join = random.choice(['top', 'bottom'])
-            else:
-                join = join_type
- 
-            if join is 'top':
-                return [(x1, y1), (x1, y2), (x2, y2)]
-            elif join is 'bottom':
-                return [(x1, y1), (x2, y1), (x2, y2)]
- 
     def join_rooms(self, room_1, room_2, join_type='either'):
         # sort by the value of x
         if room_1.x > room_2.x:
             tmp_room = room_1
             room_1 = room_2
             room_2 = tmp_room
- 
+
         x1 = room_1.x
         y1 = room_1.y
         w1 = room_1.width
         h1 = room_1.height
-        x1_2 = x1 + w1 - 1
-        y1_2 = y1 + h1 - 1
- 
+        x1_2 = room_1.x2
+        y1_2 = room_1.y2
+
         x2 = room_2.x
         y2 = room_2.y
         w2 = room_2.width
         h2 = room_2.height
-        x2_2 = x2 + w2 - 1
-        y2_2 = y2 + h2 - 1
- 
+        x2_2 = room_2.x2
+        y2_2 = room_2.y2
+
         # overlapping on x
         if x1 < (x2 + w2) and x2 < (x1 + w1):
             jx1 = random.randint(x2, x1_2)
@@ -88,7 +63,7 @@ class Generator():
             jy1 = tmp_y[1] + 1
             jy2 = tmp_y[2] - 1
  
-            corridors = self.corridor_between_points(jx1, jy1, jx2, jy2)
+            corridors = Corridor(jx1, jy1, jx2, jy2, self.width, self.height)
             self.corridor_list.append(corridors)
  
         # overlapping on y
@@ -104,7 +79,7 @@ class Generator():
             jx1 = tmp_x[1] + 1
             jx2 = tmp_x[2] - 1
  
-            corridors = self.corridor_between_points(jx1, jy1, jx2, jy2)
+            corridors = Corridor(jx1, jy1, jx2, jy2, self.width, self.height)
             self.corridor_list.append(corridors)
  
         # no overlap
@@ -121,16 +96,14 @@ class Generator():
                     jy1 = random.randint(y1, y1_2)
                     jx2 = random.randint(x2, x2_2)
                     jy2 = y2 - 1
-                    corridors = self.corridor_between_points(
-                        jx1, jy1, jx2, jy2, 'bottom')
+                    corridors = Corridor(jx1, jy1, jx2, jy2, self.width, self.height, 'bottom')
                     self.corridor_list.append(corridors)
                 else:
                     jx1 = random.randint(x1, x1_2)
                     jy1 = y1 - 1
                     jx2 = x2 - 1
                     jy2 = random.randint(y2, y2_2)
-                    corridors = self.corridor_between_points(
-                        jx1, jy1, jx2, jy2, 'top')
+                    corridors = Corridor(jx1, jy1, jx2, jy2, self.width, self.height, 'top')
                     self.corridor_list.append(corridors)
  
             elif join is 'bottom':
@@ -139,16 +112,14 @@ class Generator():
                     jy1 = y1_2 + 1
                     jx2 = x2 - 1
                     jy2 = random.randint(y2, y2_2)
-                    corridors = self.corridor_between_points(
-                        jx1, jy1, jx2, jy2, 'top')
+                    corridors = Corridor(jx1, jy1, jx2, jy2, self.width, self.height, 'top')
                     self.corridor_list.append(corridors)
                 else:
                     jx1 = x1_2 + 1
                     jy1 = random.randint(y1, y1_2)
                     jx2 = random.randint(x2, x2_2)
                     jy2 = y2_2 + 1
-                    corridors = self.corridor_between_points(
-                        jx1, jy1, jx2, jy2, 'bottom')
+                    corridors = Corridor(jx1, jy1, jx2, jy2, self.width, self.height, 'bottom')
                     self.corridor_list.append(corridors)
  
  
@@ -206,16 +177,17 @@ class Generator():
                     self.level[room.y + c][room.x+ b] = 'floor'
  
         # paint corridors
+        # TODO add doors
         for corridor in self.corridor_list:
-            x1, y1 = corridor[0]
-            x2, y2 = corridor[1]
+            x1, y1 = corridor.points[0]
+            x2, y2 = corridor.points[1]
             for width in range(abs(x1 - x2) + 1):
                 for height in range(abs(y1 - y2) + 1):
                     self.level[min(y1, y2) + height][
                         min(x1, x2) + width] = 'floor'
  
-            if len(corridor) == 3:
-                x3, y3 = corridor[2]
+            if len(corridor.points) == 3:
+                x3, y3 = corridor.points[2]
  
                 for width in range(abs(x2 - x3) + 1):
                     for height in range(abs(y2 - y3) + 1):
@@ -251,25 +223,15 @@ class Generator():
                         self.level[row + 1][col + 1] = 'wall'
  
     def gen_tiles_level(self):
- 
         for row_num, row in enumerate(self.level):
             temp_row = []
             for col_num, col in enumerate(row):
-                if col == 'stone':
-                    temp_row.extend(self.tiles['stone'])
-                if col == 'floor':
-                    temp_row.extend(self.tiles['floor'])
-                if col == 'wall':
-                    temp_row.extend(self.tiles['wall'])
+                temp_row.extend(self.tiles[col])
             self.tiles_level.append(tuple(temp_row))
  
         self.print_map()
     
     def print_map(self): 
-        # print('Room List: ', self.room_list)
-        # print('\nCorridor List: ', self.corridor_list)
- 
-        # [print(row) for row in self.tiles_level]
         with open('map.png', 'wb') as f:
             w = png.Writer(self.width, self.height, greyscale=False)
             w.write(f, self.tiles_level)
