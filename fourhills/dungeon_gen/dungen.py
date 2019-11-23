@@ -1,10 +1,15 @@
 from __future__ import print_function
 from room import Room, Spur
 import random
+import png
  
 CHARACTER_TILES = {'stone': ' ',
                    'floor': '.',
                    'wall': '#'}
+
+PNG_TILES = {'stone': [0,0,0],
+            'floor': [255,255,255],
+            'wall': [100, 100, 100]}
  
  
 class Generator():
@@ -19,7 +24,7 @@ class Generator():
         self.rooms_overlap = rooms_overlap
         self.random_connections = random_connections
         self.random_spurs = random_spurs
-        self.tiles = CHARACTER_TILES
+        self.tiles = tiles
         self.level = []
         self.room_list = []
         self.corridor_list = []
@@ -248,25 +253,29 @@ class Generator():
     def gen_tiles_level(self):
  
         for row_num, row in enumerate(self.level):
-            tmp_tiles = []
- 
+            temp_row = []
             for col_num, col in enumerate(row):
                 if col == 'stone':
-                    tmp_tiles.append(self.tiles['stone'])
+                    temp_row.extend(self.tiles['stone'])
                 if col == 'floor':
-                    tmp_tiles.append(self.tiles['floor'])
+                    temp_row.extend(self.tiles['floor'])
                 if col == 'wall':
-                    tmp_tiles.append(self.tiles['wall'])
+                    temp_row.extend(self.tiles['wall'])
+            self.tiles_level.append(tuple(temp_row))
  
-            self.tiles_level.append(''.join(tmp_tiles))
+        self.print_map()
+    
+    def print_map(self): 
+        # print('Room List: ', self.room_list)
+        # print('\nCorridor List: ', self.corridor_list)
  
-        print('Room List: ', self.room_list)
-        print('\nCorridor List: ', self.corridor_list)
- 
-        [print(row) for row in self.tiles_level]
+        # [print(row) for row in self.tiles_level]
+        with open('map.png', 'wb') as f:
+            w = png.Writer(self.width, self.height, greyscale=False)
+            w.write(f, self.tiles_level)
  
  
 if __name__ == '__main__':
-    gen = Generator()
+    gen = Generator(tiles=PNG_TILES)
     gen.gen_level()
     gen.gen_tiles_level()
